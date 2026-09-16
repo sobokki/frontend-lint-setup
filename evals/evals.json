@@ -48,6 +48,18 @@
       "prompt": "작업하던 게 커밋 안 된 상태인데 프론트 린트 세팅 시작해줘",
       "expected_output": "0단계에서 git 상태가 깨끗하지 않음을 감지하고, 진행 전에 커밋할지 / git stash 할지 / 그냥 진행할지 선택지를 제시한다. 사용자 승인 없이 곧바로 대량 변경을 시작하면 실패.",
       "files": []
+    },
+    {
+      "id": 9,
+      "prompt": "이미 prettier랑 eslint 어느 정도 깔려 있는데 세팅 보강해줘",
+      "expected_output": "이미 설치·설정된 도구는 재설치하거나 설정을 통째로 덮어쓰지 않고, 없는 것만 추가하며 기존 config에 병합한다. 이미 있는 Prettier를 재설치하거나 eslint.config를 갈아엎으면 실패.",
+      "files": []
+    },
+    {
+      "id": 10,
+      "prompt": "추천 좋은데 sonarjs는 우리 팀에선 안 쓸 거야, 반영해줘",
+      "expected_output": "마무리 단계(⑥)에서 피드백을 받아, 확인을 거친 뒤 references/web-react.md의 해당 분류를 업데이트(예: sonarjs를 SKIP/제외로 반영)한다. 피드백을 무시하거나 레퍼런스 파일을 확인 없이 임의로 대폭 수정하면 실패.",
+      "files": []
     }
   ]
 }

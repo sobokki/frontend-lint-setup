@@ -24,6 +24,7 @@ argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감�
 3. **표·체크리스트·번호목록**으로 구조화해서 한눈에 보이게 한다.
 4. **되돌리기 어려운 행동(설치·대량 수정·파일 삭제·커밋·push) 전에는 반드시 확인**받는다. 승인 없이 진행하지 않는다.
 5. **기획/사양을 임의로 바꾸지 않는다.** 제약이 있으면 선택지를 제시하고 사용자가 결정.
+6. **재실행 안전(중복 방지·병합).** 이미 설치·설정된 도구는 **덮어쓰지 않고 건드리지 않는다.** 1-2 진단에서 이미 있는 걸 파악해, 없는 것만 추가하고, 설정 파일은 통째로 갈아엎지 말고 **기존 내용에 병합**한다. (예: `eslint.config`에 규칙이 이미 있으면 새로 덮지 말고 빠진 것만 추가. 이미 Prettier가 있으면 재설치하지 않고 설정 충돌만 점검.) 재실행해도 안전해야 한다.
 
 ---
 
@@ -32,6 +33,7 @@ argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감�
 ```
 0️⃣ 시작 전 안전 확인  →  ① 검사 리포트  →  ② "설치할까요?" 묻기  →  ③ (승인 시) 실제 설치·적용
                                               →  ④ "Stop 훅 넣을까요?" 묻기  →  ⑤ (승인 시) 적용
+                                              →  ⑥ 피드백 & 자기개선 (references 업데이트)
 ```
 
 ---
@@ -174,7 +176,50 @@ export default defineConfig([
   prettier,
 ]);
 ```
-> 이 예시는 **Next.js(`eslint-config-next`)** 기준. 순수 Vite/React면 base를 `typescript-eslint` + `eslint-plugin-react`/`react-hooks`로 바꾸고 나머지 규칙은 그대로 쓴다. CI가 lint/build를 돌리면(1-2의 8번) **처음엔 위 `error`들을 `warn`으로** 두고 3-6 정리 후 `error`로 올린다.
+**순수 Vite/React (Next 아님) 예시 — base만 다르고 규칙은 동일:**
+```js
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
+import react from "eslint-plugin-react";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh"; // Vite 전용 (HMR)
+import prettier from "eslint-config-prettier/flat";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
+import unusedImports from "eslint-plugin-unused-imports";
+
+export default tseslint.config(
+  { ignores: ["dist/**", "build/**"] },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ["**/*.{ts,tsx}"],
+    plugins: {
+      react,
+      "react-hooks": reactHooks,
+      "react-refresh": reactRefresh,
+      "simple-import-sort": simpleImportSort,
+      "unused-imports": unusedImports,
+    },
+    rules: {
+      ...reactHooks.configs.recommended.rules,
+      "react-refresh/only-export-components": "warn",
+      // 아래 4개 규칙 블록은 Next 예시와 동일 (import 정렬·type import·미사용 제거).
+      "simple-import-sort/imports": "error",
+      "simple-import-sort/exports": "error",
+      "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "separate-type-imports" }],
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": ["warn", { vars: "all", varsIgnorePattern: "^_", args: "after-used", argsIgnorePattern: "^_" }],
+    },
+    settings: { react: { version: "detect" } },
+  },
+  prettier, // 반드시 맨 마지막
+);
+```
+> Vite/React는 추가 설치 필요: `eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-react-refresh typescript-eslint @eslint/js`.
+
+> **공통:** CI가 lint/build를 돌리면(1-2의 8번) **처음엔 위 `error`들을 `warn`으로** 두고 3-6 정리 후 `error`로 올린다. 이미 config가 있으면(절대규칙 6) 덮지 말고 빠진 규칙만 병합.
 
 ### 3-5. package.json 스크립트
 ```json
@@ -243,6 +288,19 @@ pnpm build   # 빌드 깨지지 않는지 확인
 
 ### 5-3. 테스트
 스크립트를 pipe-test로 검증: (1) 변경 없음→exit 0, (2) 미사용 import 넣고→exit 2, (3) `{"stop_hook_active":true}`→exit 0(루프가드). 테스트 파일은 반드시 정리.
+
+---
+
+## ⑥ 피드백 & 자기개선 (마무리)
+
+작업이 끝나면 사용자에게 물어본다: **"이 추천/결과에 동의하시나요? 뺄 것·넣을 것 있나요?"**
+
+사용자가 교정·선호를 주면 (예: "이 플러그인은 우리 팀에선 안 써", "이건 항상 넣자"), 그 내용을 **해당 레퍼런스 파일에 반영**한다:
+- 프론트 플러그인 관련 → `references/web-react.md` 업데이트 (MUST/NICE/SKIP 재분류, 새 버전·대체재 반영)
+- 범용 도구 관련 → `references/cross-cutting.md` 업데이트
+
+> 이렇게 하면 **쓸수록 추천 데이터가 최신화**되어 다음 실행이 더 정확해진다 (자기개선 루프).
+> 단, 레퍼런스 파일 수정도 "파일 변경"이므로 **무엇을 어떻게 바꿀지 사용자에게 확인**받고 반영한다.
 
 ---
 
