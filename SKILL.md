@@ -71,11 +71,17 @@ git status --short
 7. **Tailwind 사용 여부** — `package.json`에 `tailwindcss` 있는지 + CSS 진입점(`globals.css` 등) 위치. **없으면 Tailwind 관련 플러그인/설정은 전부 건너뛴다.**
 8. **CI가 lint/build를 돌리는지** — `.github/workflows/*.yml` 등에서 `lint`·`build` 실행 여부 확인. 돌린다면 3단계에서 규칙을 `warn`으로 시작해 CI가 갑자기 막히는 사고를 예방.
 
-### 1-3. 리서치 (병렬 에이전트 3개)
-`references/web-react.md`, `references/cross-cutting.md`를 기반으로, **최신 버전·호환성·실제 채택률**을 웹 검색으로 검증:
-- **Agent 1 (프레임워크 전문):** `web-react.md` 로드 + 최신 버전/ESLint 9 flat config 호환/React·Next 버전 호환 확인
-- **Agent 2 (채택률 검증):** 유명 OSS 5곳 이상의 실제 eslint 설정 확인 → 채택 빈도표
-- **Agent 3 (범용 도구):** `cross-cutting.md` 로드 + Knip/OXLint/Biome 등 비-ESLint 도구 검토
+### 1-3. 리서치 (기본은 가볍게, 필요할 때만 에이전트)
+**기본 (대부분의 경우):** `references/web-react.md`, `references/cross-cutting.md`를 로드해 추천 후보를 잡고, 핵심 패키지 몇 개만 최신 버전·호환성을 웹 검색으로 가볍게 확인한다. 단순 요청(예: "prettier만 넣어줘")에 에이전트를 띄우지 않는다.
+
+**병렬 에이전트 3개는 아래 상황에서만** 스폰한다 (불필요한 과다 생성 금지):
+- 최신·실험적 스택이라 호환성이 불확실할 때 (예: 갓 나온 메이저 버전, React 19/Next 16 초기 등)
+- 사용자가 "제대로 조사해줘"라고 명시적으로 요청할 때
+- 레퍼런스가 오래돼 신뢰도가 낮다고 판단될 때
+
+  - **Agent 1 (프레임워크 전문):** 최신 버전 / ESLint 9 flat config 호환 / React·Next 버전 호환 확인
+  - **Agent 2 (채택률 검증):** 유명 OSS 5곳 이상의 실제 eslint 설정 → 채택 빈도표
+  - **Agent 3 (범용 도구):** Knip/OXLint/Biome 등 비-ESLint 도구 검토
 
 ### 1-4. 리포트 제시 (한국어·친절)
 각 도구를 **MUST-HAVE / NICE-TO-HAVE / SKIP**으로 분류하고, **각각이 뭘 하는지 쉬운 비유로 설명**한다. 표에 주간 다운로드·실제 채택 근거를 함께 표기.
@@ -106,8 +112,10 @@ pnpm add -D prettier-plugin-tailwindcss
 ```
 - 매니저별 설치 명령: pnpm→`pnpm add -D`, npm→`npm i -D`, yarn→`yarn add -D`, bun→`bun add -d`.
 - **Tailwind 없으면** `prettier-plugin-tailwindcss`를 설치하지 않고, 아래 Prettier 설정에서도 tailwind 관련 항목을 뺀다.
+- **베이스 ESLint가 없으면**(순수 Vite·맨바닥 프로젝트 — `eslint-config-next`도 없는 경우) 먼저 base부터 설치: `eslint @eslint/js typescript-eslint eslint-plugin-react eslint-plugin-react-hooks`(+ Vite면 `eslint-plugin-react-refresh`). Next는 보통 `create-next-app`이 이미 깔아둠. (위 MUST-HAVE 설치는 base 위에 얹는 것)
 
 ### 3-2. Prettier 설정 (`.prettierrc.json`)
+**Tailwind 사용 시:**
 ```json
 {
   "plugins": ["prettier-plugin-tailwindcss"],
@@ -116,6 +124,14 @@ pnpm add -D prettier-plugin-tailwindcss
 }
 ```
 > ⚠️ Tailwind v4는 `tailwindStylesheet`에 **실제 CSS 진입점 경로**를 넣어야 클래스 정렬이 작동한다. 프로젝트에서 globals.css 위치를 찾아 넣을 것.
+
+**Tailwind 미사용 시:** tailwind 항목을 전부 빼고, 필요한 기본값만. (없으면 Prettier 기본값이 적용되므로 최소 설정으로 충분)
+```json
+{
+  "semi": true,
+  "singleQuote": false
+}
+```
 
 ### 3-3. `.prettierignore` — 빌드/생성물 제외
 `.next/`, `out/`, `build/`, `node_modules/`, `pnpm-lock.yaml`, `next-env.d.ts`, 생성된 docs/번들 등 앱 코드가 아닌 것들.
