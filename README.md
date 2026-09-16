@@ -120,7 +120,10 @@ claude plugin eval
 
 ---
 
-## 크레딧
+## 크레딧 & 라이선스
 
-Anthropic Claude Code의 `recommend-static-test-tools` 스킬(리포트 전용)을 기반으로,
-**실제 설치·적용 + Stop 훅 단계 + 한국어 초심자 친화 설명**을 더해 개인용으로 재구성했습니다.
+Claude Code의 `recommend-static-test-tools` 스킬의 **"프레임워크 감지 → 도구 추천" 개념에서 영감**을 받아,
+검사→설치→적용→Stop 훅→피드백 흐름과 한국어 초심자 친화 설명을 갖춘 개인용 스킬로 새로 작성했습니다.
+레퍼런스 데이터·워크플로·스크립트는 모두 자체 리서치/작성 내용입니다.
+
+라이선스: [MIT](./LICENSE)

@@ -11,7 +11,7 @@ argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감�
 # 프론트엔드 Lint/Format 세팅 (실행형)
 
 프론트엔드 프로젝트를 검사해서 필요한 lint·formatter·정적분석 도구를 **추천하고, 확인받아 실제로 설치·적용**까지 해준다.
-`recommend-static-test-tools` 스킬(리포트 전용)을 기반으로, 실제 설치·적용 + Stop 훅 단계를 더한 개인용 버전.
+`recommend-static-test-tools`의 "감지→추천" 개념에서 영감을 받아, 실제 설치·적용 + Stop 훅 + 피드백 단계를 더해 새로 작성한 개인용 스킬. 레퍼런스·워크플로는 자체 작성.
 
 ---
 
