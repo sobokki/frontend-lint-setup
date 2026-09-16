@@ -30,9 +30,24 @@ argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감�
 ## 흐름 요약
 
 ```
-① 검사 리포트  →  ② "설치할까요?" 묻기  →  ③ (승인 시) 실제 설치·적용
-                                            →  ④ "Stop 훅 넣을까요?" 묻기  →  ⑤ (승인 시) 적용
+0️⃣ 시작 전 안전 확인  →  ① 검사 리포트  →  ② "설치할까요?" 묻기  →  ③ (승인 시) 실제 설치·적용
+                                              →  ④ "Stop 훅 넣을까요?" 묻기  →  ⑤ (승인 시) 적용
 ```
+
+---
+
+## 0️⃣ 시작 전 안전 확인 (항상 먼저)
+
+이 스킬은 나중에 **파일을 대량으로 바꾸고 설치도** 하므로, 언제든 되돌릴 수 있게 먼저 git 상태를 확인한다.
+
+```bash
+git status --short
+```
+- **깨끗함(변경 없음):** 그대로 진행. (나중에 문제 생기면 `git restore`로 전부 원복 가능하다고 안내.)
+- **커밋 안 된 변경이 있음:** 사용자에게 알리고 **선택지 제시** — 진행 전에 커밋할지 / `git stash`로 잠깐 치울지 / 그냥 진행할지. 승인 없이 진행하지 않는다.
+- **git 저장소가 아님:** "되돌리기가 어려우니 git 초기화를 권합니다"라고 안내하고 진행 여부를 물어본다.
+
+> 왜: 대량 포맷·삭제 후 "되돌리고 싶다"가 되면, 시작 시점이 커밋돼 있어야 안전하게 원복된다.
 
 ---
 
@@ -44,12 +59,15 @@ argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감�
 - 감지 결과를 사용자에게 **먼저 한국어로 요약**하고 확인받는다.
 
 ### 1-2. 현재 상태 진단
-`package.json` + 설정 파일을 읽어 아래를 파악:
+`package.json` + 설정 파일 + lockfile을 읽어 아래를 파악:
 1. ESLint 설정 (`eslint.config.*` / `.eslintrc.*`) — 이미 있는 플러그인
 2. 포매터 (prettier / biome / 없음)
 3. 테스트 러너 (vitest / jest / playwright / 없음)
 4. 커밋 훅 (husky / lint-staged / pre-commit / 없음)
 5. 정적분석 (knip 등)
+6. **패키지 매니저** — lockfile로 감지: `pnpm-lock.yaml`→pnpm, `package-lock.json`→npm, `yarn.lock`→yarn, `bun.lockb`→bun. **이후 모든 설치 명령을 이 매니저에 맞춘다.**
+7. **Tailwind 사용 여부** — `package.json`에 `tailwindcss` 있는지 + CSS 진입점(`globals.css` 등) 위치. **없으면 Tailwind 관련 플러그인/설정은 전부 건너뛴다.**
+8. **CI가 lint/build를 돌리는지** — `.github/workflows/*.yml` 등에서 `lint`·`build` 실행 여부 확인. 돌린다면 3단계에서 규칙을 `warn`으로 시작해 CI가 갑자기 막히는 사고를 예방.
 
 ### 1-3. 리서치 (병렬 에이전트 3개)
 `references/web-react.md`, `references/cross-cutting.md`를 기반으로, **최신 버전·호환성·실제 채택률**을 웹 검색으로 검증:
@@ -77,11 +95,15 @@ argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감�
 아래는 이번에 검증된 표준 세팅. 프로젝트에 맞게 조정하되 기본값으로 사용.
 
 ### 3-1. 패키지 설치
+1-2에서 감지한 **매니저**로 설치 (아래는 pnpm 예시):
 ```bash
-pnpm add -D prettier eslint-config-prettier prettier-plugin-tailwindcss \
+pnpm add -D prettier eslint-config-prettier \
   eslint-plugin-simple-import-sort eslint-plugin-unused-imports
+# Tailwind 를 쓰는 경우에만 추가:
+pnpm add -D prettier-plugin-tailwindcss
 ```
-(Tailwind 안 쓰면 `prettier-plugin-tailwindcss` 제외. npm/yarn이면 그에 맞게.)
+- 매니저별 설치 명령: pnpm→`pnpm add -D`, npm→`npm i -D`, yarn→`yarn add -D`, bun→`bun add -d`.
+- **Tailwind 없으면** `prettier-plugin-tailwindcss`를 설치하지 않고, 아래 Prettier 설정에서도 tailwind 관련 항목을 뺀다.
 
 ### 3-2. Prettier 설정 (`.prettierrc.json`)
 ```json
@@ -101,6 +123,58 @@ pnpm add -D prettier eslint-config-prettier prettier-plugin-tailwindcss \
 - `eslint-config-prettier`는 **맨 마지막에 spread** (포맷 규칙 충돌 방지)
 - import 그룹 예시: `[["^react","^next","^@?\\w"], ["^@(/|src|app|features|common)(/|$)"], ["^\\."], ["^.+\\.s?css$"]]`
 - 생성/벤더 JS(빌드 산출물)는 `globalIgnores`에 추가해 lint 소음 제거
+
+**복사-붙여넣기용 완성 예시 (Next.js + ESLint 9 flat config):**
+```js
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
+import prettier from "eslint-config-prettier/flat";
+import simpleImportSort from "eslint-plugin-simple-import-sort";
+import unusedImports from "eslint-plugin-unused-imports";
+
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  {
+    plugins: {
+      "simple-import-sort": simpleImportSort,
+      "unused-imports": unusedImports,
+    },
+    rules: {
+      // 도입 단계엔 "warn", 전체 정리(3-6) 후 "error"로 승격.
+      "simple-import-sort/imports": [
+        "error",
+        {
+          groups: [
+            ["^react", "^next", "^@?\\w"],
+            ["^@(/|src|app|features|common)(/|$)"],
+            ["^\\."],
+            ["^.+\\.s?css$"],
+          ],
+        },
+      ],
+      "simple-import-sort/exports": "error",
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        { prefer: "type-imports", fixStyle: "separate-type-imports" },
+      ],
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "unused-imports/no-unused-imports": "error",
+      "unused-imports/no-unused-vars": [
+        "warn",
+        { vars: "all", varsIgnorePattern: "^_", args: "after-used", argsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  // 빌드/생성물 lint 제외 — 프로젝트에 맞게 경로 추가.
+  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  // Prettier 충돌 규칙 비활성화 — 반드시 맨 마지막.
+  prettier,
+]);
+```
+> 이 예시는 **Next.js(`eslint-config-next`)** 기준. 순수 Vite/React면 base를 `typescript-eslint` + `eslint-plugin-react`/`react-hooks`로 바꾸고 나머지 규칙은 그대로 쓴다. CI가 lint/build를 돌리면(1-2의 8번) **처음엔 위 `error`들을 `warn`으로** 두고 3-6 정리 후 `error`로 올린다.
 
 ### 3-5. package.json 스크립트
 ```json
