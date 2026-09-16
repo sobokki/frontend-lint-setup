@@ -104,7 +104,19 @@ SKILL.md                       # 워크플로 + 규칙 (핵심 — Claude가 읽
 references/web-react.md         # React/Next/Vite 플러그인 추천 표
 references/cross-cutting.md     # 범용/모노레포 도구 (Knip·OXLint·Biome)
 assets/frontend-lint-stop.sh    # Stop 훅 스크립트 (변경 파일만 eslint 검사)
+evals/evals.json                # 스킬 자가진단 테스트 (claude plugin eval)
 ```
+
+### 스킬 테스트 (evals)
+
+스킬의 핵심 규칙(확인 먼저·한국어 친절 설명·안전장치)이 지켜지는지 자동 점검:
+
+```bash
+claude plugin eval
+```
+
+각 시나리오는 "이런 요청엔 이렇게 동작해야 한다"를 정의해두어, 스킬을 수정한 뒤
+예전 동작이 깨지지 않았는지(회귀) 확인하는 안전망 역할을 합니다.
 
 ---
 
