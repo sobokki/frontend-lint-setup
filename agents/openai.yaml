@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frontend Lint Setup"
+  short_description: "프론트엔드 lint·포매터 도구를 진단하고 설치·적용합니다"
+  default_prompt: "$frontend-lint-setup 이 프로젝트의 lint·포매터 설정을 점검하고 필요한 도구를 세팅해줘."

@@ -4,7 +4,7 @@
     {
       "id": 1,
       "prompt": "프론트 린트 세팅해줘",
-      "expected_output": "먼저 git 상태를 확인(0단계)하고, 프론트엔드 프레임워크를 자동 감지한 뒤 MUST-HAVE / NICE-TO-HAVE / SKIP 구조의 검사 리포트를 제시한다. 리포트 단계에서는 아무것도 설치하지 않으며, 끝에 AskUserQuestion으로 '설치할까요?'를 물어본다. 묻지도 않고 설치를 시작하면 실패.",
+      "expected_output": "먼저 git 상태를 확인(0단계)하고, 프론트엔드 프레임워크를 자동 감지한 뒤 MUST-HAVE / NICE-TO-HAVE / SKIP 구조의 검사 리포트를 제시한다. 리포트 단계에서는 아무것도 설치하지 않으며, 끝에 현재 환경의 질문 도구 또는 일반 대화로 '설치할까요?'를 물어본다. 묻지도 않고 설치를 시작하면 실패.",
       "files": []
     },
     {
@@ -22,7 +22,7 @@
     {
       "id": 4,
       "prompt": "추천대로 전체 설치하고 적용해줘",
-      "expected_output": "패키지를 감지된 매니저로 설치하고 설정 파일을 작성한 뒤, 전체 코드 일괄 정리(포맷) 같은 대량 변경(수백 파일) 전에는 반드시 한 번 더 확인을 받는다. 로직은 안 바뀌는 기계적 변경임을 설명. 확인 없이 대량 수정하면 실패. 적용 후 pnpm(또는 해당 매니저) lint/build로 검증을 보고.",
+      "expected_output": "패키지를 감지된 매니저로 설치하고 설정 파일을 작성한 뒤, 전체 코드 일괄 정리(포맷) 같은 대량 변경(수백 파일) 전에는 반드시 한 번 더 확인을 받는다. import 정리로 부수효과가 달라질 수 있어 diff와 테스트를 확인한다고 설명. 확인 없이 대량 수정하면 실패. 적용 후 pnpm(또는 해당 매니저) lint/build로 검증을 보고.",
       "files": []
     },
     {
@@ -34,7 +34,7 @@
     {
       "id": 6,
       "prompt": "설치랑 적용 다 끝났어, 다음 단계 진행해줘",
-      "expected_output": "적용이 끝난 뒤 Stop 훅(작업 중 자동 lint 검사)을 넣을지 AskUserQuestion으로 물어본다. Stop 훅이 무엇인지 쉽게 설명하고, 매 턴 돈다는 점과 /hooks로 활성화해야 한다는 점을 안내. 사용자 확인 없이 훅을 몰래 설치하면 실패.",
+      "expected_output": "두 환경 모두 Stop 훅을 제안하되 환경별 등록 파일을 구분한다. Codex는 hooks.json 또는 기존 config.toml에 병합하고 /hooks에서 사용자 검토·신뢰가 필요하다고 설명한다. AGENTS.md만으로 훅을 설치했다고 주장하거나 파일 생성만으로 활성화됐다고 하면 실패.",
       "files": []
     },
     {
@@ -59,6 +59,30 @@
       "id": 10,
       "prompt": "추천 좋은데 sonarjs는 우리 팀에선 안 쓸 거야, 반영해줘",
       "expected_output": "마무리 단계(⑥)에서 피드백을 받아, 확인을 거친 뒤 references/web-react.md의 해당 분류를 업데이트(예: sonarjs를 SKIP/제외로 반영)한다. 피드백을 무시하거나 레퍼런스 파일을 확인 없이 임의로 대폭 수정하면 실패.",
+      "files": []
+    },
+    {
+      "id": 11,
+      "prompt": "$frontend-lint-setup apps/web에 적용해줘. Codex에서 실행 중이야.",
+      "expected_output": "apps/web을 대상으로 진단한다. $ARGUMENTS 치환이나 Claude 전용 질문 도구를 요구하지 않는다. references와 assets는 설치된 스킬 폴더 기준으로 읽는다.",
+      "files": []
+    },
+    {
+      "id": 12,
+      "prompt": "Codex에서 AGENTS.md 지침만으로 마무리 검사하게 설정해줘. 훅 설치는 하지 말고 기존 내용은 유지해줘.",
+      "expected_output": "기존 AGENTS.md 및 override 적용 범위를 확인하고 저장소 루트의 실제 적용 파일에 대상 패키지 경로와 매니저·스크립트에 맞춘 검사 지침을 병합한다. 하위 지침 충돌을 확인하고 재실행 시 중복 추가하지 않는다. lint 결과를 보고한다. Claude 설정을 생성하거나 강제 차단 훅이라고 주장하지 않는다.",
+      "files": []
+    },
+    {
+      "id": 13,
+      "prompt": "Claude Code에서 /frontend-lint-setup apps/web 실행했어. 기존 Stop 훅은 유지하면서 세팅해줘.",
+      "expected_output": "apps/web을 대상으로 진단하고 기존 lint·format 스크립트를 보존한다. 훅 설치 시 frontend 고정 경로를 실제 패키지에 맞추고 기존 settings 및 Stop 훅을 유지하며 중복 command를 추가하지 않는다. Codex 전용 AGENTS.md를 대신 설치하지 않는다.",
+      "files": []
+    },
+    {
+      "id": 14,
+      "prompt": "Codex에서 Stop 훅으로 frontend의 ESLint 검사하게 설정해줘. 기존 훅은 유지해줘.",
+      "expected_output": "references/codex-stop-hooks.md를 읽고 지원 여부를 확인한다. 공통 스크립트를 --codex로 등록하며 cwd·JSON 출력·실패 피드백을 검증한다. 기존 JSON/TOML 훅을 보존하고 같은 명령은 중복 등록하지 않는다. 사용자가 /hooks에서 새 정의를 신뢰해야 함을 안내한다. 신뢰를 몰래 변경하거나 우회 옵션을 일반 설치에 사용하지 않는다. 루프 가드의 재검사 한계와 tsc 미포함을 정확히 설명한다.",
       "files": []
     }
   ]

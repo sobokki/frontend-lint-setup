@@ -23,7 +23,7 @@
 | 도구 | 역할 | 언제 |
 |---|---|---|
 | **@typescript-eslint/consistent-type-imports** | 타입은 `import type`로 명시 | 저렴(문법 규칙, 타입체크 불필요)·자동수정. 지금 넣기 좋음 |
-| **eslint-plugin-jsx-a11y** | 접근성 검사 | **eslint-config-next 16엔 미포함** — 필요하면 직접 추가. 고객용 화면 많을 때 |
+| **eslint-plugin-jsx-a11y** | 접근성 검사 | `eslint-config-next`의 포함 여부와 활성 규칙을 확인하고 부족한 규칙만 보완. 고객용 화면 많을 때 |
 | **@tanstack/eslint-plugin-query** | TanStack Query 실수 감지 | TanStack Query 사용 시. 단 조사한 10곳 채택 0 — 선택 |
 | **eslint-plugin-unicorn** | 140+ 유용 규칙 | recommended가 공격적 → React용 override 필요(no-null 등). trpc 사용 |
 
@@ -40,7 +40,7 @@
 
 ## 베이스 config 선택
 
-- **Next.js:** `eslint-config-next`(core-web-vitals + typescript). react·react-hooks·next 플러그인 번들. jsx-a11y는 **미포함**. typescript 프리셋은 **타입체크 미적용**.
+- **Next.js:** `eslint-config-next`(core-web-vitals + typescript). react·react-hooks·next 플러그인 번들. 검증한 `eslint-config-next` 16 구성에는 jsx-a11y도 포함됨. 중복 등록하지 말고 실제 설치 버전을 확인. typescript 프리셋은 **타입체크 미적용**.
 - **순수 Vite/React:** `typescript-eslint` + `eslint-plugin-react` + `eslint-plugin-react-hooks` + (Vite면)`eslint-plugin-react-refresh`.
 - 위 어느 쪽이든 그 위에 MUST-HAVE(simple-import-sort·unused-imports·prettier)를 얹는다.
 

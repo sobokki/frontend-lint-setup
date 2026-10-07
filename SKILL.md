@@ -4,14 +4,24 @@ description: |
   프론트엔드(Next.js / React / Vite) 프로젝트에 lint·formatter·정적분석 도구를 검사→설치→적용까지 해주는 실행형 스킬.
   Triggers on: "프론트 린트 세팅", "eslint 세팅해줘", "포매터 넣어줘", "prettier 설정",
   "frontend lint setup", "정적분석 도구 설치", "lint 도구 세팅".
-  흐름: 검사 리포트 → 설치 여부 묻기 → 실제 설치·적용 → Stop 훅 여부 묻기 → 적용.
-argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감지)]"
+  Claude Code와 Codex에서 사용. 검사 리포트 → 설치·적용 → 환경별 마무리 검사 설정.
 ---
 
 # 프론트엔드 Lint/Format 세팅 (실행형)
 
 프론트엔드 프로젝트를 검사해서 필요한 lint·formatter·정적분석 도구를 **추천하고, 확인받아 실제로 설치·적용**까지 해준다.
 `recommend-static-test-tools`의 "감지→추천" 개념에서 영감을 받아, 실제 설치·적용 + Stop 훅 + 피드백 단계를 더해 새로 작성한 개인용 스킬. 레퍼런스·워크플로는 자체 작성.
+
+---
+
+## 실행 환경과 입력
+
+- **Claude Code:** `/frontend-lint-setup [대상 폴더]`로 실행. 전달된 대상 폴더: `$ARGUMENTS`. 비어 있으면 자동 감지한다.
+- **Codex:** `$frontend-lint-setup`으로 실행하고, 같은 메시지에 `apps/web에 적용해줘`처럼 대상 폴더를 적는다. Claude 전용 인자 치환을 기대하지 않는다.
+- 대상이 없으면 아래 감지 절차를 따른다. 도구 이름·환경 정보로 현재 실행 환경을 판단하고, 폴더에 `.claude`가 있다는 이유만으로 Claude Code라고 판단하지 않는다.
+- 사용자 확인이 필요하면 현재 환경에서 사용 가능한 질문 도구를 그 도구의 허용 용도에 맞게 사용한다. 없거나 해당 용도로 쓸 수 없으면 일반 대화로 묻고 답을 기다린다. Claude 전용 `AskUserQuestion`을 Codex에서 필수로 호출하지 않는다.
+- 이 문서의 `references/`, `assets/` 경로는 **설치된 스킬 폴더 기준**이다. 프로젝트 작업 경로와 구분한다.
+- ①~③은 공통이다. ④~⑤는 두 환경 모두 Stop 훅을 지원한다. Claude Code 설정과 Codex 설정·신뢰 절차를 구분한다. Codex의 `AGENTS.md`는 보조 지침 또는 훅 미지원 환경의 대안이다.
 
 ---
 
@@ -32,7 +42,7 @@ argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감�
 
 ```
 0️⃣ 시작 전 안전 확인  →  ① 검사 리포트  →  ② "설치할까요?" 묻기  →  ③ (승인 시) 실제 설치·적용
-                                              →  ④ "Stop 훅 넣을까요?" 묻기  →  ⑤ (승인 시) 적용
+                                              →  ④ "마무리 검사 설정할까요?" 묻기  →  ⑤ (승인 시) 적용
                                               →  ⑥ 피드백 & 자기개선 (references 업데이트)
 ```
 
@@ -45,7 +55,7 @@ argument-hint: "[대상 폴더: 예) frontend, apps/web (생략 시 자동 감�
 ```bash
 git status --short
 ```
-- **깨끗함(변경 없음):** 그대로 진행. (나중에 문제 생기면 `git restore`로 전부 원복 가능하다고 안내.)
+- **깨끗함(변경 없음):** 그대로 진행. (추적 중인 파일은 Git으로 되돌릴 수 있지만 새 파일·설치된 패키지까지 자동 원복되지는 않는다고 안내.)
 - **커밋 안 된 변경이 있음:** 사용자에게 알리고 **선택지 제시** — 진행 전에 커밋할지 / `git stash`로 잠깐 치울지 / 그냥 진행할지. 승인 없이 진행하지 않는다.
 - **git 저장소가 아님:** "되돌리기가 어려우니 git 초기화를 권합니다"라고 안내하고 진행 여부를 물어본다.
 
@@ -56,7 +66,7 @@ git status --short
 ## ① 검사 리포트
 
 ### 1-1. 대상 감지
-- `$ARGUMENTS`로 폴더가 주어지면 그 폴더. 없으면 `package.json`을 찾아 프론트엔드 워크스페이스 자동 감지.
+- 요청에 대상 폴더가 주어지면 그 폴더(위 실행 환경과 입력 참고). 없으면 `package.json`을 찾아 프론트엔드 워크스페이스 자동 감지.
 - 모노레포면 프론트엔드 패키지를 고른다 (`next`, `react`, `vite` 의존성 기준).
 - 감지 결과를 사용자에게 **먼저 한국어로 요약**하고 확인받는다.
 
@@ -67,14 +77,14 @@ git status --short
 3. 테스트 러너 (vitest / jest / playwright / 없음)
 4. 커밋 훅 (husky / lint-staged / pre-commit / 없음)
 5. 정적분석 (knip 등)
-6. **패키지 매니저** — lockfile로 감지: `pnpm-lock.yaml`→pnpm, `package-lock.json`→npm, `yarn.lock`→yarn, `bun.lockb`→bun. **이후 모든 설치 명령을 이 매니저에 맞춘다.**
+6. **패키지 매니저** — lockfile로 감지: `pnpm-lock.yaml`→pnpm, `package-lock.json`→npm, `yarn.lock`→yarn, `bun.lock` / `bun.lockb`→bun. **이후 모든 설치 명령을 이 매니저에 맞춘다.**
 7. **Tailwind 사용 여부** — `package.json`에 `tailwindcss` 있는지 + CSS 진입점(`globals.css` 등) 위치. **없으면 Tailwind 관련 플러그인/설정은 전부 건너뛴다.**
-8. **CI가 lint/build를 돌리는지** — `.github/workflows/*.yml` 등에서 `lint`·`build` 실행 여부 확인. 돌린다면 3단계에서 규칙을 `warn`으로 시작해 CI가 갑자기 막히는 사고를 예방.
+8. **CI가 lint/build를 돌리는지** — `.github/workflows/*.yml` 등에서 `lint`·`build` 실행 여부 확인. 돌린다면 3단계에서 규칙을 `warn`으로 시작해 CI 영향을 줄인다. 다만 `--max-warnings=0`이면 warn도 실패하므로 실제 CI 명령을 함께 확인한다.
 
 ### 1-3. 리서치 (기본은 가볍게, 필요할 때만 에이전트)
 **기본 (대부분의 경우):** `references/web-react.md`, `references/cross-cutting.md`를 로드해 추천 후보를 잡고, 핵심 패키지 몇 개만 최신 버전·호환성을 웹 검색으로 가볍게 확인한다. 단순 요청(예: "prettier만 넣어줘")에 에이전트를 띄우지 않는다.
 
-**병렬 에이전트 3개는 아래 상황에서만** 스폰한다 (불필요한 과다 생성 금지):
+**병렬 에이전트는 지원되는 환경에서 아래 상황에만** 활용한다 (지원되지 않으면 같은 조사를 순차 수행) (불필요한 과다 생성 금지):
 - 최신·실험적 스택이라 호환성이 불확실할 때 (예: 갓 나온 메이저 버전, React 19/Next 16 초기 등)
 - 사용자가 "제대로 조사해줘"라고 명시적으로 요청할 때
 - 레퍼런스가 오래돼 신뢰도가 낮다고 판단될 때
@@ -92,7 +102,7 @@ git status --short
 
 ## ② "설치할까요?" 묻기
 
-리포트를 보여준 뒤, `AskUserQuestion`으로 물어본다:
+리포트를 보여준 뒤, 현재 환경에 맞는 질문 방식으로 물어본다:
 - **전체 설치** / **일부만 선택** / **아직 안 함**
 - 전체 코드 일괄 정리(포맷)는 파일이 대량으로 바뀌므로 **별도로 한 번 더 확인**한다.
 
@@ -100,7 +110,7 @@ git status --short
 
 ## ③ 실제 설치·적용 (승인 시에만)
 
-아래는 이번에 검증된 표준 세팅. 프로젝트에 맞게 조정하되 기본값으로 사용.
+아래는 Next.js 16 / ESLint 9 및 React + TypeScript용 예시다. 실제 Node·프레임워크·플러그인 버전과 peerDependencies를 확인하고 기존 설정에 맞춰 적용한다. JavaScript 전용 프로젝트에 TypeScript 도구나 규칙을 강제로 추가하지 않는다.
 
 ### 3-1. 패키지 설치
 1-2에서 감지한 **매니저**로 설치 (아래는 pnpm 예시):
@@ -112,10 +122,11 @@ pnpm add -D prettier-plugin-tailwindcss
 ```
 - 매니저별 설치 명령: pnpm→`pnpm add -D`, npm→`npm i -D`, yarn→`yarn add -D`, bun→`bun add -d`.
 - **Tailwind 없으면** `prettier-plugin-tailwindcss`를 설치하지 않고, 아래 Prettier 설정에서도 tailwind 관련 항목을 뺀다.
-- **베이스 ESLint가 없으면**(순수 Vite·맨바닥 프로젝트 — `eslint-config-next`도 없는 경우) 먼저 base부터 설치: `eslint @eslint/js typescript-eslint eslint-plugin-react eslint-plugin-react-hooks`(+ Vite면 `eslint-plugin-react-refresh`). Next는 보통 `create-next-app`이 이미 깔아둠. (위 MUST-HAVE 설치는 base 위에 얹는 것)
+- Next에서 ESLint 설정이 없다면 현재 Next 버전에 맞는 `eslint-config-next`와 호환 ESLint를 설치한다. 아래 Vite 베이스로 대체하지 않는다.
+- **베이스 ESLint가 없으면**(순수 Vite·맨바닥 프로젝트 — `eslint-config-next`도 없는 경우) 먼저 base부터 설치: `eslint @eslint/js globals eslint-plugin-react eslint-plugin-react-hooks`(+ TypeScript면 `typescript-eslint`, + Vite면 `eslint-plugin-react-refresh`). Next는 보통 `create-next-app`이 이미 깔아둠. (위 MUST-HAVE 설치는 base 위에 얹는 것)
 
 ### 3-2. Prettier 설정 (`.prettierrc.json`)
-**Tailwind 사용 시:**
+**Tailwind v4 사용 시:**
 ```json
 {
   "plugins": ["prettier-plugin-tailwindcss"],
@@ -124,6 +135,8 @@ pnpm add -D prettier-plugin-tailwindcss
 }
 ```
 > ⚠️ Tailwind v4는 `tailwindStylesheet`에 **실제 CSS 진입점 경로**를 넣어야 클래스 정렬이 작동한다. 프로젝트에서 globals.css 위치를 찾아 넣을 것.
+
+**Tailwind v3 사용 시:** `tailwindStylesheet` 대신 `tailwindConfig`에 실제 `tailwind.config.*` 경로를 지정한다. 커스텀 preset·색상 등이 로드되는지도 작은 샘플로 확인한다.
 
 **Tailwind 미사용 시:** tailwind 항목을 전부 빼고, 필요한 기본값만. (없으면 Prettier 기본값이 적용되므로 최소 설정으로 충분)
 ```json
@@ -136,13 +149,18 @@ pnpm add -D prettier-plugin-tailwindcss
 ### 3-3. `.prettierignore` — 빌드/생성물 제외
 `.next/`, `out/`, `build/`, `node_modules/`, `pnpm-lock.yaml`, `next-env.d.ts`, 생성된 docs/번들 등 앱 코드가 아닌 것들.
 
-### 3-4. ESLint 설정 (flat config에 추가)
+### 3-4. ESLint 설정 (기존 형식 유지)
+- `.eslintrc.*`를 사용하는 ESLint 8 프로젝트는 legacy 형식을 유지한다. `extends` 끝에 `prettier`를 추가하고 `plugins`는 이름 배열로 병합한다. 스킬 예시를 적용하려고 ESLint 메이저를 올리거나 flat config를 병행 생성하지 않는다.
+- 아래 flat config 예시는 flat config 프로젝트에만 적용한다. 설치할 플러그인의 peerDependencies를 실제 ESLint·TypeScript 플러그인 버전과 대조한다.
+- `--max-warnings 0` 환경에서 검증만 요청받았다면 새 규칙을 별도 검증 설정과 임시 fixture에 적용한다. 기존 코드 전체에 warn을 추가하고 정상 도입이라고 보고하지 않는다.
+
 - 플러그인: `simple-import-sort`(import 정렬), `unused-imports`(미사용 제거), `@typescript-eslint/consistent-type-imports`(`import type` 강제)
-- `eslint-config-prettier`는 **맨 마지막에 spread** (포맷 규칙 충돌 방지)
+- `eslint-config-prettier`는 **맨 마지막 요소로 추가** (`prettier`는 배열이 아닌 설정 객체이므로 `...prettier`로 펼치지 않는다) (포맷 규칙 충돌 방지)
 - import 그룹 예시: `[["^react","^next","^@?\\w"], ["^@(/|src|app|features|common)(/|$)"], ["^\\."], ["^.+\\.s?css$"]]`
 - 생성/벤더 JS(빌드 산출물)는 `globalIgnores`에 추가해 lint 소음 제거
 
-**복사-붙여넣기용 완성 예시 (Next.js + ESLint 9 flat config):**
+**Next.js + TypeScript + ESLint 9 flat config 예시:**
+JavaScript 전용 Next 프로젝트는 `nextTs` import·spread와 `@typescript-eslint/*` 규칙을 생략한다.
 ```js
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
@@ -194,7 +212,9 @@ export default defineConfig([
 ```
 **순수 Vite/React (Next 아님) 예시 — base만 다르고 규칙은 동일:**
 ```js
+import { defineConfig } from "eslint/config";
 import js from "@eslint/js";
+import globals from "globals";
 import tseslint from "typescript-eslint";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
@@ -203,12 +223,19 @@ import prettier from "eslint-config-prettier/flat";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import unusedImports from "eslint-plugin-unused-imports";
 
-export default tseslint.config(
+export default defineConfig([
   { ignores: ["dist/**", "build/**"] },
   js.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommended.map((config) => ({
+    ...config,
+    files: ["**/*.{ts,tsx,mts,cts}"],
+  })),
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
+    languageOptions: {
+      globals: globals.browser,
+      parserOptions: { ecmaFeatures: { jsx: true } },
+    },
     plugins: {
       react,
       "react-hooks": reactHooks,
@@ -217,29 +244,39 @@ export default tseslint.config(
       "unused-imports": unusedImports,
     },
     rules: {
+      ...react.configs.recommended.rules,
+      ...react.configs["jsx-runtime"].rules,
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": "warn",
       // 아래 4개 규칙 블록은 Next 예시와 동일 (import 정렬·type import·미사용 제거).
       "simple-import-sort/imports": "error",
       "simple-import-sort/exports": "error",
-      "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "separate-type-imports" }],
       "no-unused-vars": "off",
-      "@typescript-eslint/no-unused-vars": "off",
       "unused-imports/no-unused-imports": "error",
       "unused-imports/no-unused-vars": ["warn", { vars: "all", varsIgnorePattern: "^_", args: "after-used", argsIgnorePattern: "^_" }],
     },
     settings: { react: { version: "detect" } },
   },
+  {
+    files: ["**/*.{ts,tsx,mts,cts}"],
+    rules: {
+      "@typescript-eslint/consistent-type-imports": ["error", { prefer: "type-imports", fixStyle: "separate-type-imports" }],
+      "@typescript-eslint/no-unused-vars": "off",
+      "react/prop-types": "off", // TypeScript로 props 검증
+    },
+  },
   prettier, // 반드시 맨 마지막
-);
+]);
 ```
-> Vite/React는 추가 설치 필요: `eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-react-refresh typescript-eslint @eslint/js`.
+> Vite/React는 추가 설치 필요: `eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-react-refresh typescript-eslint @eslint/js globals`. JavaScript 전용이면 `typescript-eslint` import·추천 설정·TS 전용 규칙 블록을 생략한다. `defineConfig`는 ESLint에서 가져오므로 그대로 유지한다. Vite가 아닌 React 프로젝트는 `reactRefresh` import·플러그인 등록·규칙도 생략한다.
 
 > **공통:** CI가 lint/build를 돌리면(1-2의 8번) **처음엔 위 `error`들을 `warn`으로** 두고 3-6 정리 후 `error`로 올린다. 이미 config가 있으면(절대규칙 6) 덮지 말고 빠진 규칙만 병합.
 
 ### 3-5. package.json 스크립트
+기존 스크립트를 보존하고 **없는 항목만** 대상 패키지에 추가한다. 기존 lint가 Biome·OXLint 등 다른 유효한 도구를 실행하면 유지하고 전환을 강제하지 않는다. `next lint`처럼 현재 프로젝트 버전에서 더 이상 지원하지 않는 명령만 버전에 맞춰 수정한다.
 ```json
-"lint:fix": "eslint --fix",
+"lint": "eslint .",
+"lint:fix": "eslint . --fix",
 "format": "prettier --write .",
 "format:check": "prettier --check ."
 ```
@@ -249,8 +286,8 @@ export default tseslint.config(
 pnpm lint:fix   # import 정렬 + 미사용 제거
 pnpm format     # 포맷 통일
 ```
-- **주의:** 파일이 대량(수백 개) 바뀔 수 있음 → 실행 전 반드시 재확인. 로직은 안 바뀌는 기계적 변경임을 설명.
-- **도입 팁:** 처음엔 규칙을 `warn`으로 두면 CI가 안 막힘 → 위 일괄 정리 후 `error`로 승격.
+- **주의:** 파일이 대량(수백 개) 바뀔 수 있음 → 실행 전 반드시 재확인. 포맷 외에 import 제거·정렬도 포함되므로 부수효과가 있는 모듈 로딩에 영향을 줄 수 있음을 설명하고 diff와 테스트를 확인한다.
+- **도입 팁:** CI가 warning을 허용하는 경우 처음엔 규칙을 `warn`으로 도입 → 위 일괄 정리 후 `error`로 승격.
 
 ### 3-7. (선택) Knip — 안 쓰는 파일/의존성 찾기
 ```bash
@@ -264,25 +301,27 @@ pnpm add -D knip
 pnpm lint    # 에러 0 확인
 pnpm build   # 빌드 깨지지 않는지 확인
 ```
-결과를 한국어로 보고. 실패 시 원인과 함께 알린다.
+실제로 정의된 lint/build 스크립트와 감지한 매니저로 검증한다. build가 없는 프로젝트에서는 임의 명령을 실행하거나 성공했다고 보고하지 말고 미실행 사유를 적는다. 결과를 한국어로 보고하고 실패 시 원인과 함께 알린다.
 
 ---
 
-## ④ "Stop 훅 넣을까요?" 묻기
+## ④ "마무리 검사 설정할까요?" 묻기
 
-전체 적용이 끝나면 물어본다: **"작업 중 자동 lint 검사(Stop 훅)를 넣을까요?"**
+**Codex:** "작업을 마칠 때 변경 파일에 ESLint를 실행하고, 실패하면 추가 수정을 요청하는 Stop 훅을 넣을까요?"라고 묻는다. 이미 훅 설치를 요청했다면 다시 묻지 않고 ⑤-B로 간다. Codex에도 `/hooks`가 있으며, 새 훅은 사용자 검토·신뢰 전에는 실행되지 않는다고 안내한다.
+
+**Claude Code:** 전체 적용이 끝나면 물어본다: **"작업 중 자동 lint 검사(Stop 훅)를 넣을까요?"**
 - Stop 훅이 뭔지 **쉽게** 설명: "Claude가 응답을 끝낼 때마다, 방금 바꾼 프론트 파일에 lint 검사를 돌려서 에러가 있으면 멈추고 고치게 하는 자동 검사대."
-- 타이밍 오해 방지: **매 턴 돈다**(세션 끝 한 번이 아님). 단 바뀐 파일에만 돌아 대부분 즉시 통과(~0.05초), 프론트 바뀐 턴만 ~1.7초.
+- 타이밍 오해 방지: **매 턴 돈다**(세션 끝 한 번이 아님). 작업 트리에서 변경된 대상 파일만 검사하며, 실행 시간은 프로젝트 크기와 규칙에 따라 달라진다.
 - git 커밋 훅과는 **별개**임을 설명.
 
 ---
 
-## ⑤ Stop 훅 적용 (승인 시에만)
+## ⑤-A Claude Code Stop 훅 적용 (승인 시에만)
 
 ### 5-1. 훅 스크립트 설치
 `assets/frontend-lint-stop.sh`를 프로젝트의 `.claude/hooks/frontend-lint-stop.sh`로 복사하고 실행권한 부여(`chmod +x`).
-- 이 스크립트는 변경된 프론트 파일에 eslint 검사 → **에러 있으면 exit 2로 세션 종료를 막고** 사유를 Claude에 전달. 경고는 안 막음. bash 3.2 호환, 무한루프 가드 포함.
-- 프로젝트 구조가 다르면(폴더명 `frontend`가 아니면) 스크립트 안의 경로를 맞게 수정.
+- 이 스크립트는 변경된 프론트 파일에 eslint 검사 → **에러 있으면 exit 2로 추가 수정을 요청하고** 사유를 Claude에 전달. 경고는 안 막음. bash 3.2 호환, 무한루프 가드 포함.
+- 프로젝트 구조가 다르면(폴더명 `frontend`가 아니면) 스크립트 안의 디렉터리 확인·Git 경로·상대경로 변환·실행 디렉터리를 모두 실제 대상에 맞춘다. 기본 실행기는 `npx --no-install`이다. Yarn PnP 등 npm 실행기로 로컬 ESLint를 찾을 수 없는 환경은 해당 매니저의 로컬 실행 명령으로 바꾸고 실검증한다.
 
 ### 5-2. 훅 등록 (`.claude/settings.local.json` — 개인용, gitignore)
 ```json
@@ -299,11 +338,34 @@ pnpm build   # 빌드 깨지지 않는지 확인
   }
 }
 ```
+- 위 JSON은 구조 예시다. 기존 settings와 다른 Stop 훅을 보존하고 동일 command가 없을 때만 배열에 추가한다.
 - `.claude/settings.local.json`을 `.gitignore`에 추가(팀에 강제 안 함).
 - **활성화 안내:** 이 파일을 세션 도중 만들면 **지금 세션엔 안 뜬다** → `/hooks` 한 번 열거나 재시작. **다음 세션부터는 자동 로드.**
 
 ### 5-3. 테스트
-스크립트를 pipe-test로 검증: (1) 변경 없음→exit 0, (2) 미사용 import 넣고→exit 2, (3) `{"stop_hook_active":true}`→exit 0(루프가드). 테스트 파일은 반드시 정리.
+스크립트를 pipe-test로 검증: (1) 변경 없음→exit 0, (2) 미사용 import 넣고→exit 2, (3) `{"stop_hook_active":true}`→exit 0(루프가드). 테스트 파일은 반드시 정리. 재개된 턴은 루프 가드로 검사를 건너뛰므로 에이전트가 수정 후 직접 재검사해야 한다. 이 훅은 통과할 때까지 무조건 차단하는 장치가 아니며 CI를 대체하지 않는다.
+
+---
+
+## ⑤-B Codex Stop 훅 적용 (승인 시에만)
+
+설치·신뢰·검증 절차는 **`references/codex-stop-hooks.md`를 읽고 따른다.** 공통 스크립트 `assets/frontend-lint-stop.sh`를 `.codex/hooks/`에 복사하고 `--codex`로 등록한다. 이 모드는 입력 JSON의 `cwd`를 사용하고 성공 시 `{}`를 출력한다.
+
+- 기존 `.codex/hooks.json` 또는 `config.toml`의 훅을 보존·병합하고 중복 등록하지 않는다.
+- 파일 설치, 사용자의 훅 신뢰, 실제 Stop 이벤트 검증을 구분해서 보고한다. 설치만으로 활성화됐다고 말하지 않는다.
+- 기본 훅은 변경 파일 ESLint만 검사한다. `tsc`·포매터를 실행했다고 보고하지 않는다. 타입 검사를 추가 요청받으면 실제 프로젝트 명령과 실행 시간을 확인해 별도로 연결한다.
+- 재개된 턴에는 루프 가드가 적용된다. 수정 후 명시적 재검사와 기존 CI를 유지한다.
+
+### AGENTS.md 보조 지침 / 훅 미지원 시 대안
+
+사용자가 지침만 요청했거나 실행 환경에서 훅을 지원하지 않는 경우에는 아래 절차를 사용한다. 훅 설치를 지침으로 조용히 대체하지 말고 제한과 적용 방식을 설명한다.
+
+
+1. 대상 패키지와 상위 경로의 `AGENTS.md`, `AGENTS.override.md`를 읽어 적용 범위와 기존 검사 지침을 확인한다. 기존 내용을 보존하고 중복 지침은 추가하지 않는다. override가 우선되는 경우 새 지침이 실제로 읽힐 파일에 병합한다.
+2. `assets/codex-lint-instructions.md`를 참고해 **저장소 루트의 AGENTS.md**(비어 있지 않은 override가 우선되면 해당 파일)에 대상 패키지 경로를 명시한 검사 지침을 병합한다. Codex는 시작 시 저장소 루트에서 현재 작업 디렉터리까지 지침을 읽으므로, 모노레포의 하위 패키지에만 추가하면 루트에서 시작할 때 빠질 수 있다. 기존 하위 지침과도 충돌·중복을 확인한다. 파일 전체를 덮어쓰지 않는다. git 저장소가 아니면 실제 시작 디렉터리를 기준으로 한다.
+3. 템플릿의 경로·명령을 감지된 패키지 매니저와 실제 `package.json` 스크립트에 맞춘다. 템플릿은 저장소 루트 기준 `frontend` 패키지의 pnpm 프로젝트용이며, 없는 스크립트를 그대로 안내하지 않는다.
+4. 실제 lint 명령을 실행하고 결과를 보고한다. 실패를 숨기거나 검사 생략을 성공으로 보고하지 않는다. 이 설정만으로 CI·git 훅·런타임 종료 차단이 생기지는 않는다.
+5. 새 Codex 세션을 대상 프로젝트에서 시작해 적용된 지침을 확인하도록 안내한다.
 
 ---
 
@@ -334,7 +396,9 @@ pnpm build   # 빌드 깨지지 않는지 확인
 ## 참조 파일 (필요할 때만 로드)
 - 프론트(React/Next/Vite) 플러그인 표 → `references/web-react.md`
 - 범용/모노레포 도구(Knip·OXLint·Biome 등) → `references/cross-cutting.md`
-- Stop 훅 스크립트 원본 → `assets/frontend-lint-stop.sh`
+- Codex 마무리 검사 지침 템플릿 → `assets/codex-lint-instructions.md`
+- Claude Code·Codex 공통 Stop 훅 스크립트 → `assets/frontend-lint-stop.sh`
+- Codex Stop 훅 설치·신뢰·검증 → `references/codex-stop-hooks.md`
 
 ## 출력 규칙
 - 설명은 **항상 한국어 + 초심자 친화**.
